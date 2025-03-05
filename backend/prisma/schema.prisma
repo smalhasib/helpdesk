@@ -1,0 +1,163 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SYSTEM_OWNER
+  SUPER_ADMIN
+  ADMIN
+  IT_PERSON
+  USER
+  EXPIRED
+}
+
+enum BusinessType {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  HARDWARE
+  SOFTWARE
+  NETWORK
+  ACCESS
+  OTHER
+}
+
+// Add your models here
+model User {
+  id              Int              @id @default(autoincrement())
+  username        String           @unique
+  email           String           @unique
+  password        String
+  role            Role             @default(USER)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  account         Account?
+  tickets         Ticket[]         @relation("CreatedTickets")
+  assignedTickets Ticket[]         @relation("AssignedTickets")
+  notes           TicketNote[]
+  auditLogs       AuditLog[]
+  loginHistory    LoginHistory[]
+  location        String?
+  businessType    BusinessType?
+  DashboardStats  DashboardStats[]
+
+  @@index([role])
+  @@index([businessType])
+}
+
+model Account {
+  id         Int       @id @default(autoincrement())
+  userId     Int       @unique
+  user       User      @relation(fields: [userId], references: [id])
+  expiryDate DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([expiryDate])
+}
+
+model Ticket {
+  id          Int            @id @default(autoincrement())
+  title       String
+  description String
+  status      String         @default("PENDING")
+  priority    TicketPriority @default(MEDIUM)
+  category    TicketCategory
+  ipAddress   String?
+  deviceName  String?
+  userId      Int
+  user        User           @relation("CreatedTickets", fields: [userId], references: [id])
+  assignedTo  Int?
+  assigned    User?          @relation("AssignedTickets", fields: [assignedTo], references: [id])
+  notes       TicketNote[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  closedAt    DateTime?
+
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([createdAt])
+  @@index([userId])
+  @@index([assignedTo])
+}
+
+model TicketNote {
+  id        Int      @id @default(autoincrement())
+  note      String
+  ticketId  Int
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  addedById Int
+  addedBy   User     @relation(fields: [addedById], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  action    String
+  details   String?
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([action])
+  @@index([createdAt])
+}
+
+model LoginHistory {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  ipAddress  String?
+  deviceInfo String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model ArchivedData {
+  id         Int      @id @default(autoincrement())
+  tableName  String
+  data       Json
+  archivedAt DateTime @default(now())
+
+  @@index([tableName])
+  @@index([archivedAt])
+}
+
+model DashboardStats {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id])
+  totalTickets  Int
+  openTickets   Int
+  closedTickets Int
+  totalUsers    Int
+  date          DateTime @default(now())
+
+  @@index([userId])
+  @@index([date])
+}
